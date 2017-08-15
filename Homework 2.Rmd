@@ -9,31 +9,30 @@ output: html_document
 You can also embed plots, for example:
 
 ### First, we read in the raw file directly from github and import the ggplot2 library
-```{r, echo=TRUE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 ABIA <- read.csv("https://raw.githubusercontent.com/jgscott/STA380/master/data/ABIA.csv", header=TRUE)
 library(ggplot2)
 ```
 
 We can look at the different variables available to us is this data set. Remove cancelled flights. Separate into flights departing from Austin and flights arriving in Austin.
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 
 library(lubridate)
 names(ABIA)
 ABIA$MonthName <- month(ABIA$Month, label=TRUE, abbr=FALSE)
 ABIA$MonthName <-factor(ABIA$MonthName)
 ```
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
 This data set contains flights into and out of Austin. Let's create a column for Weekday name to make the data more understandable, then We can separate this data into two subsets: flights arriving into Austin, and flights departing from Austin.
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 departures <- ABIA[(ABIA$Origin=="AUS") & ABIA$Cancelled==0,]
 arrivals <- ABIA [(ABIA$Dest == "AUS") & ABIA$Cancelled==0,]
 ```
 
 We can take a look at the summary statistics to start to understand our data.
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 cat("Summary statistics: flights departing from Austin\n\n")
 summary(departures)
 
@@ -41,51 +40,26 @@ cat("\n\nSummary statistics: flights arriving in Austin\n\n")
 summary(arrivals)
 ```
 
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 
-```{r}
-print(qplot( arrivals$DepDelay, arrivals$ArrDelay, xlab="Departure Delay (min)", ylab="Arrival Delay (min)", main="Austin-Bergstrom Arrivals"))
-
-```
-
-```{r}
-
-print(qplot( departures$DepDelay, departures$ArrDelay, xlab="Departure Delay (min)", ylab="Arrival Delay (min)", main="Austin-Bergstrom Departures"))
+qplot( departures$DepDelay, departures$ArrDelay, xlab="Departure Delay (min)", ylab="Arrival Delay (min)", main="Austin-Bergstrom Departures")
 
 ```
 
-```{r}
-print(qplot( arrivals$Month, arrivals$ArrDelay, xlab="Month", ylab="Arrival Delay (min)", main="Austin-Bergstrom Arrivals", alpha=TRUE, geom="smooth"))
-
-```
-
-```{r}
-print(qplot( arrivals$DayofMonth, arrivals$ArrDelay, xlab="Day of Month", ylab="Arrival Delay (min)", main="Austin-Bergstrom Arrivals", alpha=TRUE, geom="smooth"))
-```
 ### Create a historgram for average arrival and departure delays
 
-```{r}
-break_list=list(-15,-10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
-print(hist(ABIA$ArrDelay, plot=TRUE, breaks=20))
-print(hist(ABIA$DepDelay, plot=TRUE, breaks=20))
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+print(hist(ABIA$ArrDelay, plot=TRUE, xlim=c(-30,300), freq=FALSE, breaks=seq(-180,1800,15)))
+print(hist(ABIA$DepDelay, plot=TRUE, xlim=c(-30,300), freq=FALSE, breaks=seq(-180,1800,15)))
 ```
 
 
 ## aggregate (group) the flight data by month and take the mean
-```{r}
-print(arrivals)
-arrivals_agg <- aggregate(.~Month, data=arrivals, mean)
 
-ggplot(data=arrivals_agg, aes(x=Month)) + geom_line(aes(y=ArrDelay, colour="Arrival Delay", label="ArrDelay")) + geom_line(aes(y=DepDelay, colour="Departure Delay", label="DepDelay"))+scale_color_manual(values=c("red", "green")) +xlab("Month") + scale_y_continuous("Average Delay (min)")+labs(title="Delays: Flights Arriving in Austin")
-
-departures_agg <- aggregate(.~Month, data=departures, mean)
-
-ggplot(data=departures_agg, aes(x=Month)) + geom_line(aes(y=ArrDelay, colour="Arrival Delay", label="ArrDelay")) + geom_line(aes(y=DepDelay, colour="Departure Delay", label="DepDelay"))+scale_color_manual(values=c("red", "green")) +xlab("Month") + scale_y_continuous("Average Delay (min)")+labs(title="Delays: Flights Departing in Austin")
-
-```
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 
 arrivals_agg <- aggregate(.~Month, data=arrivals, mean, na.rm=TRUE, na.action=NULL)
-print(arrivals_agg)
+#print(arrivals_agg)
 
 departures_agg <- aggregate(.~Month, data=departures, mean, na.rm=TRUE, na.action=NULL)
 
@@ -98,14 +72,14 @@ ggplot() +
   scale_y_continuous("Average Delay (min)")+labs(title="Austin-Bergstrom Delays by Month")
 ```
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 
 arrivals_agg <- aggregate(.~DayOfWeek, data=arrivals, mean, na.rm=TRUE, na.action=NULL)
-print(arrivals_agg)
+#print(arrivals_agg)
 
 departures_agg <- aggregate(.~DayOfWeek, data=departures, mean, na.rm=TRUE, na.action=NULL)
 
-print(departures_agg)
+#print(departures_agg)
 
 ggplot() +
   geom_line(data=arrivals_agg, aes(x=DayOfWeek, y=ArrDelay, colour="Arrival Delay: Incoming Flights", label="ArrDelay: Incoming Flights")) +
@@ -117,14 +91,14 @@ ggplot() +
 ```
 
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 
 arrivals_agg <- aggregate(.~DayofMonth, data=arrivals, mean, na.rm=TRUE, na.action=NULL)
-print(arrivals_agg)
+#print(arrivals_agg)
 
 departures_agg <- aggregate(.~DayofMonth, data=departures, mean, na.rm=TRUE, na.action=NULL)
 
-print(departures_agg)
+#print(departures_agg)
 
 ggplot() +
   geom_line(data=arrivals_agg, aes(x=DayofMonth, y=ArrDelay, colour="Arrival Delay: Incoming Flights", label="ArrDelay: Incoming Flights")) +
