@@ -5,8 +5,7 @@ date: "August 13, 2017"
 output: html_document
 ---
 
-
-You can also embed plots, for example:
+#Flights at ABIA
 
 ### First, we read in the raw file directly from github and import the ggplot2 library
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
@@ -109,3 +108,8 @@ ggplot() +
   scale_y_continuous("Average Delay (min)")+labs(title="Austin-Bergstrom Delays by Day of Month")
 ```
 
+#Author attribution
+
+###Stuff
+
+#Practice with association rule mining
