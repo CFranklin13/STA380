@@ -1,2 +1,3 @@
-# STA380
-Summer: STA380 with James Scott
+# STA380 - Exercises 2
+
+Clarissa Franklin, Yannick Heard, Paige McKenzie
