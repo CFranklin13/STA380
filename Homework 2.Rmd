@@ -5,7 +5,7 @@ date: "August 13, 2017"
 output: html_document
 ---
 
-#Flights at ABIA
+#Question 1: Flights at ABIA
 
 ### First, we read in the raw file directly from github and import the ggplot2 library
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
@@ -108,69 +108,43 @@ ggplot() +
   scale_y_continuous("Average Delay (min)")+labs(title="Austin-Bergstrom Delays by Day of Month")
 ```
 
-#Author attribution
+#Question 2: Author attribution
 
-###Stuff
+Read in data, set up corpus
 ```{r}
-## The tm library and related plugins comprise R's most popular text-mining stack.
-## See http://cran.r-project.org/web/packages/tm/vignettes/tm.pdf
 library(tm) 
 library(magrittr)
 
-## tm has many "reader" functions.  Each one has
-## arguments elem, language, id
-## (see ?readPlain, ?readPDF, ?readXML, etc)
-## This wraps another function around readPlain to read
-## plain text documents in English.
 readerPlain = function(fname){
   readPlain(elem=list(content=readLines(fname)), 
             id=fname, language='en') }
 
-## Test it on Adam Smith
-adam = readerPlain("data/division_of_labor.txt")
-adam
-content(adam)
+setwd("~/MSBA/Scott/STA380")
+file_list = Sys.glob('data/ReutersC50/C50train/*/*.txt')
+everyone = lapply(file_list, readerPlain) 
 
-## apply to all of Simon Cowell's articles
-## (probably not THE Simon Cowell: https://twitter.com/simoncowell)
-## "globbing" = expanding wild cards in filename paths
-file_list = Sys.glob('data/ReutersC50/C50train/SimonCowell/*.txt')
-simon = lapply(file_list, readerPlain) 
-
-# The file names are ugly...
-file_list
-
-# Clean up the file names
-# This uses the piping operator from magrittr
-# See https://cran.r-project.org/web/packages/magrittr/vignettes/magrittr.html
 mynames = file_list %>%
 { strsplit(., '/', fixed=TRUE) } %>%
 { lapply(., tail, n=2) } %>%
 { lapply(., paste0, collapse = '') } %>%
   unlist
 
-mynames
-names(simon) = mynames
+names(everyone) = mynames
 
-## once you have documents in a vector, you 
-## create a text mining 'corpus' with: 
-my_documents = Corpus(VectorSource(simon))
+my_documents = Corpus(VectorSource(everyone))
+```
 
-## Some pre-processing/tokenization steps.
-## tm_map just maps some function to every document in the corpus
-
+Do some text processing
+```{r}
 my_documents = tm_map(my_documents, content_transformer(tolower)) # make everything lowercase
 my_documents = tm_map(my_documents, content_transformer(removeNumbers)) # remove numbers
 my_documents = tm_map(my_documents, content_transformer(removePunctuation)) # remove punctuation
 my_documents = tm_map(my_documents, content_transformer(stripWhitespace)) ## remove excess white-space
 
-## Remove stopwords.  Always be careful with this: one man's trash is another one's treasure.
-stopwords("en")
-stopwords("SMART")
-?stopwords
 my_documents = tm_map(my_documents, content_transformer(removeWords), stopwords("en"))
+```
 
-
+```{r}
 ## create a doc-term-matrix
 DTM_simon = DocumentTermMatrix(my_documents)
 DTM_simon # some basic summary statistics
@@ -230,4 +204,96 @@ content(simon[[11]])
 
 ```
 
-#Practice with association rule mining
+#Question 3: Association rule mining
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Association rule mining
+# Adapted from code by Matt Taddy
+library(arules)  # has a big ecosystem of packages built around it
+
+# Read in playlists from users
+grocery <- read.transactions('https://raw.githubusercontent.com/jgscott/STA380/master/data/groceries.txt', sep=',')
+summary(grocery)
+inspect(grocery[1:10])
+```
+
+```{r}
+library(arulesViz)
+rulse_1 <- apriori(grocery, parameter=list(support=0.01, confidence=0.5))
+rulse_2 <- apriori(grocery, parameter=list(support=0.001, confidence=0.9))
+inspectDT(rulse_1)
+inspectDT(rulse_2)
+```
+
+
+```{r}
+rules_sorted <- sort(rules, by='confidence', decreasing=TRUE)
+#matrix representation
+#plot(rules[1:20], method = 'matrix', control = list(reorder=TRUE))
+
+#Interactive Scatterplot 
+plotly_arules(rules)
+
+#plot(rules, method = 'graph', interactive=TRUE, shading=NA)
+subrules <- head(sort(rules, by='lift'),10) #Graph just 10 rules by 10 highest lifts 
+plot(subrules, method='graph')
+plot(rules, method='grouped') #Grouped Matrix shows LHS and RHS 
+plot(subrules,method='paracoord', control=list(reorder=TRUE)) #Parallel Coordinates plot for 10 rules 
+```
+
+```{r}
+rules_conf <- sort(rules, by='confidence', decreasing=TRUE)
+inspect(head(rules_conf)) #High-confidence rules
+
+rules_lift <- sort(rules, by='lift', decreasing=TRUE)
+inspect(head(rules_lift)) #High lift rules 
+```
+
+```{r}
+rules <- apriori(data=grocery, parameter=list(supp=0.001, conf=0.08), appearance = list(default = 'lhs', rhs = 'margarine'), control=list(verbose=F))
+rules <- sort(rules, decreasing=TRUE, by='confidence')
+inspect(rules[1:5])
+```
+
+```{r}
+rules2 <- apriori(data=grocery, parameter=list(supp=0.01, conf=0.1), appearance = list(default = 'rhs', lhs = 'margarine'), control=list(verbose=F))
+rules2 <- sort(rules2, by='confidence', decreasing=TRUE)
+inspect(rules2)
+```
+
+
+
+
+
+
+Copied from Playlists:
+```{r}
+# Turn user into a factor
+playlists_raw$user <- factor(playlists_raw$user)
+
+# First create a list of baskets: vectors of items by consumer
+# Analagous to bags of words
+
+# apriori algorithm expects a list of baskets in a special format
+# In this case, one "basket" of songs per user
+# First split data into a list of artists for each user
+playlists <- split(x=playlists_raw$artist, f=playlists_raw$user)
+
+## Remove duplicates ("de-dupe")
+playlists <- lapply(playlists, unique)
+
+## Cast this variable as a special arules "transactions" class.
+playtrans <- as(playlists, "transactions")
+
+# Now run the 'apriori' algorithm
+# Look at rules with support > .01 & confidence >.5 & length (# artists) <= 4
+musicrules <- apriori(playtrans, 
+	parameter=list(support=.01, confidence=.5, maxlen=4))
+                         
+# Look at the output
+inspect(musicrules)
+
+## Choose a subset
+inspect(subset(musicrules, subset=lift > 5))
+inspect(subset(musicrules, subset=confidence > 0.6))
+inspect(subset(musicrules, subset=support > .02 & confidence > 0.6))
+```
