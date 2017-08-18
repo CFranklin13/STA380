@@ -113,6 +113,7 @@ Using the Reuters 50 articles, we will try to predict the authors of some unattr
 ```{r}
 library(dplyr)
 library(tm)
+library(caret)
 #Get train and test data
 readerPlain = function(fname){
   readPlain(elem=list(content=readLines(fname)), 
@@ -194,14 +195,16 @@ library(naivebayes)
 naive_bayes_model = naive_bayes(author ~ ., data = X_train)
 naive_bayes_pred = data.frame(predict(naive_bayes_model, X_test))
 
-naive_bayes_df = data.frame(cbind(naive_bayes_pred, X_test$author))
-
-#Add column indicating whether the prediction matches the actual author
-naive_bayes_df$correct = naive_bayes_df$predict.naive_bayes_model..X_test. == naive_bayes_df$X_test.author
+conf_mat_nb = confusionMatrix(table(unlist(naive_bayes_pred),X_test$author))
 
 #Print out result (number of correct/total number of predictions)
-cat("Percent correct for Naive Bays:", mean(naive_bayes_df$correct))
+cat("Percent correct out-of-sample for Naive Bayes:", conf_mat_nb$overall[1])
+
+sensitivity_df_nb = as.data.frame(conf_mat_nb$byClass)
+as.data.frame(sensitivity_df_nb)[order(-sensitivity_df_nb$Sensitivity),1:2]
 ```
+Naive Bayes only accurately predicts 44% of the testing articles. The table above dispays the sensitivity and specificity for each author, once again demonstrating that Naive Bayes is not particularly accurate for the majority of the authors in the testing data. This may be because Naive Bayes assumes each word's frequency is independent, when in fact word choice may be highly correlated depending on the author's topic of interest.
+
 Model 2: Random Forest with 350 trees
 ```{r}
 library(randomForest)
@@ -209,14 +212,17 @@ random_forest_model = randomForest(author ~ ., data = X_train,
                           distribution = 'multinomial',
                           n.trees=350)
 random_forest_pred = data.frame(predict(random_forest_model,newdata = X_test))
-random_forest_df = data.frame(cbind(random_forest_pred,X_test$author))
 
-#Add column indicating whether the prediction matches the actual author
-random_forest_df$correct = random_forest_df$predict.random_forest_model..newdata...X_test. == random_forest_df$X_test.author
+conf_mat_rf = confusionMatrix(table(unlist(random_forest_pred),X_test$author))
 
 #Print out result (number of correct/total number of predictions)
-cat("Percent correct for Naive Bays:", mean(random_forest_df$correct))
+cat("Percent correct out-of-sample for Random Forest:", conf_mat_rf$overall[1])
+
+sensitivity_df_rf = as.data.frame(conf_mat_rf$byClass)
+as.data.frame(sensitivity_df_rf)[order(-sensitivity_df_rf$Sensitivity),1:2]
+
 ```
+Clearly, the Random Forest mode is much more accurate than the Naive Bayes, though a 55% accuracy is nothing to write home about. Once again, the table above dispays the sensitivity and specificity for each author, demonstrating that Random Forest is a much better model than Naive Bayes. 
 
 #Question 3: Association rule mining
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
