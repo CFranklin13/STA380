@@ -5,7 +5,7 @@ date: "August 13, 2017"
 output: html_document
 ---
 
-#Question 1: Flights at ABIA
+# Question 1: Flights at ABIA
 
 ### First, we read in the raw file directly from github and import the ggplot2 library
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
@@ -108,7 +108,7 @@ ggplot() +
   scale_y_continuous("Average Delay (min)")+labs(title="Austin-Bergstrom Delays by Day of Month")
 ```
 
-#Question 2: Author attribution
+# Question 2: Author attribution
 Using the Reuters 50 articles, we will try to predict the authors of some unattributed articles based on word frequency patterns. To start off, we'll read in the train and test folders, and create corpora for them.
 ```{r}
 library(dplyr)
@@ -224,7 +224,7 @@ as.data.frame(sensitivity_df_rf)[order(-sensitivity_df_rf$Sensitivity),1:2]
 ```
 Clearly, the Random Forest mode is much more accurate than the Naive Bayes, though a 55% accuracy is nothing to write home about. Once again, the table above dispays the sensitivity and specificity for each author, demonstrating that Random Forest is a much better model than Naive Bayes. 
 
-#Question 3: Association rule mining
+# Question 3: Association rule mining
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 # Association rule mining
 # Adapted from code by Matt Taddy
