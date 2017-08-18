@@ -109,93 +109,113 @@ ggplot() +
 ```
 
 #Question 2: Author attribution
-
-Let's start off by reading in the training data and setting up our corpus.
+Using the Reuters 50 articles, we will try to predict the authors of some unattributed articles based on word frequency patterns. To start off, we'll read in the train and test folders, and create corpora for them.
 ```{r}
-library(tm) 
-library(magrittr)
-library(class)
-
+library(dplyr)
+library(tm)
+#Get train and test data
 readerPlain = function(fname){
   readPlain(elem=list(content=readLines(fname)), 
             id=fname, language='en') }
 
-train = "C:/Users/Paige/Documents/MSBA/Scott/STA380/data/ReutersC50/C50train"
-test = "C:/Users/Paige/Documents/MSBA/Scott/STA380/data/ReutersC50/C50test"
-file_list = Sys.glob(paste0(train,'/*/*.txt'))
-authornames = list.dirs("C:/Users/Paige/Documents/MSBA/Scott/STA380/data/ReutersC50/C50train", full.names = FALSE)[-1]
-classificationnames = rep(authornames, each=50)
-authors = lapply(file_list, readerPlain) 
+setwd("~/MSBA/Scott/STA380")
+file_list_train = Sys.glob('data/ReutersC50/C50train/*/*.txt')
+file_list_test = Sys.glob('data/ReutersC50/C50test/*/*.txt')
+all_train = lapply(file_list_train, readerPlain) 
+all_test = lapply(file_list_test, readerPlain) 
 
-mynames = file_list %>%
-{ strsplit(., '/', fixed=TRUE) } %>%
-{ lapply(., tail, n=2) } %>%
-{ lapply(., paste0, collapse = '') } %>%
-  unlist
+# Some more concise document names via basic string manipulation
+names(all_train) = file_list_train
+names(all_train) = substring(names(all_train),first=26)
+names(all_train) = t(data.frame(strsplit(names(all_train),'/')))[,1]
 
-names(authors) = mynames
-my_documents = Corpus(VectorSource(authors))
+names(all_test) = file_list_test
+names(all_test) = substring(names(all_test),first=25)
+names(all_test) = t(data.frame(strsplit(names(all_test),'/')))[,1]
 
-## Some pre-processing/tokenization steps copied from Scott's notes
-my_documents = tm_map(my_documents, content_transformer(tolower)) # make everything lowercase
-my_documents = tm_map(my_documents, content_transformer(removeNumbers)) # remove numbers
-my_documents = tm_map(my_documents, content_transformer(removePunctuation)) # remove punctuation
-my_documents = tm_map(my_documents, content_transformer(stripWhitespace)) ## remove excess white-space
-my_documents = tm_map(my_documents, content_transformer(removeWords), stopwords("en"))
-
-
-## create a doc-term-matrix
-DTM = DocumentTermMatrix(my_documents)
-DTM # some basic summary statistics
-
-#remove terms that appear in less than 10% of documents
-DTM = removeSparseTerms(DTM, 0.90)
+## once you have documents in a vector, you 
+## create a text mining 'corpus' with: 
+corpus_train = Corpus(VectorSource(all_train))
+corpus_test = Corpus(VectorSource(all_test))
 ```
-
-Now let's split the training data into two sets, for cross-validation, following a 80/20 split.
+Next, we'll filter the corpora by making all words lowercase, removing numbers and punction, and removing excess whitespace. We'll also remove the stopwords that appear in the "en" set.
 ```{r}
-X = as.matrix(DTM)
-row.names(X) = file_list_train
+## Some pre-processing/tokenization steps to corpus_train
+corpus_train = tm_map(corpus_train, content_transformer(tolower)) # make everything lowercase
+corpus_train = tm_map(corpus_train, content_transformer(removeNumbers)) # remove numbers
+corpus_train = tm_map(corpus_train, content_transformer(removePunctuation)) # remove punctuation
+corpus_train = tm_map(corpus_train, content_transformer(stripWhitespace)) ## remove excess white-space
 
-X = X/rowSums(X)  # term-frequency weighting
+corpus_train = tm_map(corpus_train, content_transformer(removeWords), stopwords("en"))
 
-# Transform dtm to matrix to data frame
-mat_df <- as.data.frame(data.matrix(DTM), stringsAsfactors = FALSE)
+#Do it again to corpus_test
+corpus_test = tm_map(corpus_test, content_transformer(tolower)) # make everything lowercase
+corpus_test = tm_map(corpus_test, content_transformer(removeNumbers)) # remove numbers
+corpus_test  = tm_map(corpus_test, content_transformer(removePunctuation)) # remove punctuation
+corpus_test  = tm_map(corpus_test, content_transformer(stripWhitespace)) ## remove excess white-space
 
-# Bind the categories with the known author names from the training data
-mat_df$category <- classificationnames
-
-# Split data randomly
-train <- sample(nrow(mat_df), ceiling(nrow(mat_df) * .80))
-test <- (1:nrow(mat_df))[- train]
-
-# Isolate classifier
-classifier <- mat_df[, "category"]
-
-# Create model data and remove "category"
-modeldata <- mat_df[,!colnames(mat_df) %in% "category"]
+corpus_test  = tm_map(corpus_test , content_transformer(removeWords), stopwords("en"))
 ```
+Finally, our text is processed enough to make the document term matrices. We'll also weight the words using the TF-IDF, or term frequency - inverse document frequency method. We'll also remove 'sparse' terms, using the 7.5% cut off.
 
-1st model: K-Nearest Neighbors
+Most importantly, we took the intersection of words that appear in the training articles and testing articles, and will ONLY use those words. This way, words that only appear in the testing set will not throw errors, and words that appear only in the training set won't be used at all and won't waste memory or processing time.
+
+With all this processing done, we'll format the data into X_train and X_test, ready to fit and predict our models.
 ```{r}
-library(caret)
-# Create model
-knn.pred <- knn(modeldata[train, ], modeldata[test, ], classifier[train])
+DTM_train = DocumentTermMatrix(corpus_train, control = list(weighting = weightTfIdf))
+DTM_train = removeSparseTerms(DTM_train, 0.925)
 
-conf_mat <- confusionMatrix(knn.pred, classifier[test])
-conf_mat$overall[1]
+DTM_test = DocumentTermMatrix(corpus_test, control = list(weighting = weightTfIdf))
+DTM_test = removeSparseTerms(DTM_test, 0.925)
+
+#convert both to dataframe
+DF_train = as.data.frame(as.matrix(DTM_train))
+names(DF_train) = paste(names(DF_train),'.w',sep='')
+list_authors_train = factor(names(all_train))
+
+DF_test = as.data.frame(as.matrix(DTM_test))
+names(DF_test) = paste(names(DF_test),'.w',sep='')
+list_authors_test = factor(names(all_test))
+
+#take intersection of words
+intersection = intersect(names(DF_train),names(DF_test))
+DF_train = DF_train[,intersection]
+DF_test = DF_test[,intersection]
+
+#split into appropriate form for model fitting
+X_train = DF_train
+X_train$author = list_authors_train
+X_test = DF_test
+X_test$author = list_authors_test
 ```
-Model 2: Naive Bayes
+Model 1: Naive Bayes
 ```{r}
-library(e1071)
-# Create model
-model <-  naiveBayes(mat_df$category ~ ., data=mat_df)
-pred <- predict(model, modeldata[test, ])
+library(naivebayes)
+naive_bayes_model = naive_bayes(author ~ ., data = X_train)
+naive_bayes_pred = data.frame(predict(naive_bayes_model, X_test))
 
-cat("Accuracy: ", sum(diag(naive.pred))/length(test))
+naive_bayes_df = data.frame(cbind(naive_bayes_pred, X_test$author))
 
-conf.mat <- table("Predictions" = pred, Actual = classifier[test])
-conf.mat
+#Add column indicating whether the prediction matches the actual author
+naive_bayes_df$correct = naive_bayes_df$predict.naive_bayes_model..X_test. == naive_bayes_df$X_test.author
+
+#Print out result (number of correct/total number of predictions)
+cat("Percent correct for Naive Bays:", mean(naive_bayes_df$correct))
+```
+Model 2: Random Forest with 350 trees
+```{r}
+library(randomForest)
+random_forest_model = randomForest(author ~ ., data = X_train,
+                          distribution = 'multinomial',
+                          n.trees=350)
+random_forest_pred = data.frame(predict(random_forest_model,newdata = X_test))
+random_forest_df = data.frame(cbind(random_forest_pred,X_test$author))
+
+#Add column indicating whether the prediction matches the actual author
+random_forest_df$correct = random_forest_df$predict.random_forest_model..newdata...X_test. == random_forest_df$X_test.author
+
+#Print out result (number of correct/total number of predictions)
+cat("Percent correct for Naive Bays:", mean(random_forest_df$correct))
 ```
 
 #Question 3: Association rule mining
